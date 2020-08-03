@@ -13,9 +13,11 @@ theme_set(theme_light())
 office_transcripts <- as_tibble(theoffice) %>%
   mutate(season = as.integer(season),
          episode = as.integer(episode)) %>%
-  mutate(character = str_remove_all(character, '"'))
+  mutate(character = str_remove_all(character, '"')) %>%
+  mutate(name = str_to_lower(str_remove_all(episode_name, "\\.| \\(Part.*")))
 
-office_ratings <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-17/office_ratings.csv')
+office_ratings <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-03-17/office_ratings.csv') %>%
+    mutate(name = str_to_lower(str_remove(title, "\\.| \\(Part.*|\\: Part.*")))
 
 
 View(office_ratings)
@@ -115,6 +117,53 @@ character_tf_idf <- transcript_words %>%
   facet_wrap(~ character, scales = "free_y") +
   labs(x = "",
        y = "TF-IDF of character-word pairs")
+
+```
+
+### Machine learning model
+
+What affects popularity of an episode:
+
+* Season / time
+* Director
+* Writer
+* Lines per character
+
+```{r}
+
+ratings_summarized <- office_ratings %>%
+  group_by(name) %>%
+  summarize(imdb_rating = mean(imdb_rating))
+
+character_lines_ratings <- office_transcripts %>%
+  filter(!character %in% blocklist_characters) %>%
+  count(character, name) %>%
+  group_by(character) %>%
+  filter(sum(n) >= 50,
+         n() >= 5) %>%
+  inner_join(ratings_summarized, by = 'name')
+
+
+character_lines_ratings %>%
+  summarize(avg_rating = mean(imdb_rating),
+            nb_episodes = n()) %>%
+  arrange(desc(avg_rating))
+```
+
+
+```{r}
+## writer column can have multiple, we need to split them up, keep those with 3 credits to ensure a lot of data
+
+director_writer_features <- office_transcripts %>%
+  distinct(name, director, writer) %>%
+  gather(type, value, director, writer) %>%
+  separate_rows(value,sep = ';') %>%
+  unite(feature, type, value, sep = ": ") %>%
+  add_count(feature) %>%
+  filter(n >= 3)
+
+character_line_features <- character_lines_ratings %>%
+  select(name, feature = character, value = n)
 
 ```
 
