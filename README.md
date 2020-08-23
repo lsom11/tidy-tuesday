@@ -2,7 +2,7 @@
 
 This repo is where I will be posting my tidy-tuesday solutions
 
-So Far I`ve done:
+Completed Projects:
 
 Animal Crossing
 Office
